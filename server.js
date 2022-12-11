@@ -28,6 +28,8 @@ app.use(
 app.use(helmet.hidePoweredBy());
 app.use(helmet.xssFilter());
 
+const messagesRecieved = [];
+
 // API Routes
 app.post("/api/webhook", async (req, res) => {
   // let message = req.body.message;
@@ -72,70 +74,75 @@ app.post("/api/webhook", async (req, res) => {
                 const waid = message.from;
                 const text = message.text.body;
                 const msgId = message.id;
-                console.log(
-                  "Message from " + waid + " - " + userName + ": " + text
-                );
 
-                try {
-                  await axios.post(
-                    process.env.WHATSAPP_SEND_MESSAGE_API,
-                    {
-                      messaging_product: "whatsapp",
-                      status: "read",
-                      message_id: msgId,
-                    },
-                    {
-                      headers: {
-                        Authorization: "Bearer " + process.env.WHATSAPP_TOKEN,
+                if (!messagesRecieved.includes(msgId)) {
+                  messagesRecieved.push(msgId);
+
+                  console.log(
+                    "Message from " + waid + " - " + userName + ": " + text
+                  );
+
+                  try {
+                    await axios.post(
+                      process.env.WHATSAPP_SEND_MESSAGE_API,
+                      {
+                        messaging_product: "whatsapp",
+                        status: "read",
+                        message_id: msgId,
                       },
-                    }
-                  );
-                } catch (error) {
-                  console.error(
-                    "Error while sending status message to whatsapp: " + error
-                  );
-                }
+                      {
+                        headers: {
+                          Authorization: "Bearer " + process.env.WHATSAPP_TOKEN,
+                        },
+                      }
+                    );
+                  } catch (error) {
+                    console.error(
+                      "Error while sending status message to whatsapp: " + error
+                    );
+                  }
 
-                const { ChatGPTAPI } = await import("chatgpt");
+                  const { ChatGPTAPI } = await import("chatgpt");
 
-                // sessionToken is required; see below for details
-                const api = new ChatGPTAPI({
-                  sessionToken: process.env.SESSION_TOKEN,
-                });
+                  // sessionToken is required; see below for details
+                  const api = new ChatGPTAPI({
+                    sessionToken: process.env.SESSION_TOKEN,
+                  });
 
-                // ensure the API is properly authenticated
-                await api.ensureAuth();
+                  // ensure the API is properly authenticated
+                  await api.ensureAuth();
 
-                // send a message and wait for the response
-                const reply = await api.sendMessage(text);
+                  // send a message and wait for the response
+                  const reply = await api.sendMessage(text);
 
-                console.log("Replying to " + waid + ": " + reply);
+                  console.log("Replying to " + waid + ": " + reply);
 
-                // Send reply to user
-                try {
-                  await axios.post(
-                    process.env.WHATSAPP_SEND_MESSAGE_API,
-                    {
-                      messaging_product: "whatsapp",
-                      recipient_type: "individual",
-                      to: waid,
-                      type: "text",
-                      text: {
-                        preview_url: false,
-                        body: reply,
+                  // Send reply to user
+                  try {
+                    await axios.post(
+                      process.env.WHATSAPP_SEND_MESSAGE_API,
+                      {
+                        messaging_product: "whatsapp",
+                        recipient_type: "individual",
+                        to: waid,
+                        type: "text",
+                        text: {
+                          preview_url: false,
+                          body: reply,
+                        },
                       },
-                    },
-                    {
-                      headers: {
-                        Authorization: "Bearer " + process.env.WHATSAPP_TOKEN,
-                      },
-                    }
-                  );
-                } catch (whatsappSendError) {
-                  console.error(
-                    "Error while sending message to whatsapp: " +
-                      JSON.stringify(whatsappSendError.response.data)
-                  );
+                      {
+                        headers: {
+                          Authorization: "Bearer " + process.env.WHATSAPP_TOKEN,
+                        },
+                      }
+                    );
+                  } catch (whatsappSendError) {
+                    console.error(
+                      "Error while sending message to whatsapp: " +
+                        JSON.stringify(whatsappSendError.response.data)
+                    );
+                  }
                 }
               }
             }
